@@ -121,6 +121,8 @@
     var now = new Date();
     var end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
     var s = Math.max(0, Math.floor((end - now) / 1000));
+    // 자정 도달 → 새로고침: 새 날짜 코드 재발급 (타이머만 리셋되고 어제 코드가 남는 빈틈 방지)
+    if (s === 0) { location.reload(); return; }
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
     document.getElementById('left').textContent =
       p(Math.floor(s / 3600)) + ':' + p(Math.floor(s % 3600 / 60)) + ':' + p(s % 60);
