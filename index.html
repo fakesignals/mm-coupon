@@ -11,7 +11,8 @@
     min-height: 100vh; display: flex; flex-direction: column; align-items: center;
     justify-content: center; gap: 18px; padding: 24px 16px;
     background: #10141d; color: #e8edf5;
-    font-family: 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', sans-serif;
+    font-family: 'Apple SD Gothic Neo', 'Pretendard', 'Noto Sans KR', 'Hiragino Sans',
+      'Noto Sans JP', 'PingFang SC', 'Noto Sans SC', sans-serif;
   }
   .brand { letter-spacing: .35em; font-size: 12px; color: #8a94a6; font-weight: 700; }
 
@@ -66,7 +67,7 @@
   <div class="ticket">
     <div class="t-top">
       <div class="badge">%</div>
-      <div class="t-head">매대 상품 할인 쿠폰</div>
+      <div class="t-head" id="head">매대 상품 할인 쿠폰</div>
       <div class="t-sub" id="why">스마트 매대가 드리는 혜택이에요</div>
       <div class="amount" id="amount">10<small>%</small></div>
     </div>
@@ -74,18 +75,18 @@
     <div class="t-bottom">
       <div class="code-k">COUPON CODE</div>
       <div class="code" id="code">— — — —</div>
-      <div class="until">오늘 마감 · 남은 시간 <b id="left">--:--:--</b></div>
+      <div class="until"><span id="until">오늘 마감 · 남은 시간</span> <b id="left">--:--:--</b></div>
       <div class="meta" id="meta"></div>
     </div>
   </div>
 
-  <div class="howto">
+  <div class="howto" id="howto">
     <b>사용 방법</b><br>
     계산대에서 이 화면을 직원에게 보여주세요.<br>
     할인은 이 매대의 상품에 적용됩니다.
   </div>
 
-  <div class="terms">
+  <div class="terms" id="terms">
     본 쿠폰은 발급 당일에 한해 1회 사용할 수 있으며, 다른 할인과 중복 적용되지 않습니다.<br>
     매장 사정에 따라 조기 종료될 수 있습니다.
   </div>
@@ -94,9 +95,56 @@
 (function () {
   var q = new URLSearchParams(location.search);
 
+  // 언어(lang=ko|ja|en|zh) — 매대가 QR 주소에 실어 보낸다. 없거나 모르는 값이면 한국어.
+  // 문구를 고치거나 언어를 늘릴 때는 이 표만 손대면 된다.
+  var T = {
+    ko: {
+      title: 'AIsirius 매대 쿠폰', head: '매대 상품 할인 쿠폰',
+      sub: '스마트 매대가 드리는 혜택이에요',
+      why: { b: '고민되실 때 드리는, 지금만의 혜택이에요', v: '말씀을 듣고 준비한, 지금만의 혜택이에요' },
+      until: '오늘 마감 · 남은 시간', issued: '발급', locale: 'ko-KR',
+      howto: '<b>사용 방법</b><br>계산대에서 이 화면을 직원에게 보여주세요.<br>할인은 이 매대의 상품에 적용됩니다.',
+      terms: '본 쿠폰은 발급 당일에 한해 1회 사용할 수 있으며, 다른 할인과 중복 적용되지 않습니다.<br>매장 사정에 따라 조기 종료될 수 있습니다.'
+    },
+    ja: {
+      title: 'AIsirius 売り場クーポン', head: '売り場商品 割引クーポン',
+      sub: 'スマート売り場からの特典です',
+      why: { b: 'お悩みのお客様へ、今だけの特典です', v: 'お声を伺ってご用意した、今だけの特典です' },
+      until: '本日限り · 残り時間', issued: '発行', locale: 'ja-JP',
+      howto: '<b>ご利用方法</b><br>レジでこの画面をスタッフにお見せください。<br>割引はこの売り場の商品に適用されます。',
+      terms: '本クーポンは発行当日に限り1回ご利用いただけます。他の割引との併用はできません。<br>店舗の都合により早期終了する場合があります。'
+    },
+    en: {
+      title: 'AIsirius Shelf Coupon', head: 'Shelf Discount Coupon',
+      sub: 'A treat from the smart shelf',
+      why: { b: "Still deciding? Here's an offer just for now", v: "We heard you — here's an offer just for now" },
+      until: 'Ends today · Time left', issued: 'Issued', locale: 'en-US',
+      howto: '<b>How to use</b><br>Show this screen to staff at the checkout.<br>The discount applies to products on this shelf.',
+      terms: 'This coupon can be used once, on the day of issue only, and cannot be combined with other discounts.<br>The offer may end early at the store\'s discretion.'
+    },
+    zh: {
+      title: 'AIsirius 货架优惠券', head: '货架商品折扣券',
+      sub: '智能货架为您送上的优惠',
+      why: { b: '还在犹豫吗？这是限时专属优惠', v: '听到了您的需求，为您准备了限时优惠' },
+      until: '今日截止 · 剩余时间', issued: '领取时间', locale: 'zh-CN',
+      howto: '<b>使用方法</b><br>结账时请向店员出示此页面。<br>折扣适用于本货架的商品。',
+      terms: '本券仅限领取当日使用一次，不可与其他优惠同时使用。<br>活动可能因店铺情况提前结束。'
+    }
+  };
+  // zh-CN 같은 지역 꼬리표는 앞부분만 본다
+  var lang = (q.get('lang') || 'ko').toLowerCase().split('-')[0];
+  if (!T[lang]) lang = 'ko';
+  var S = T[lang];
+  var $ = function (id) { return document.getElementById(id); };
+  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : lang;
+  document.title = S.title;
+  $('head').textContent = S.head;
+  $('until').textContent = S.until;
+  $('howto').innerHTML = S.howto;
+  $('terms').innerHTML = S.terms;
+
   // 발급 계기(t=b 행동 / t=v 발화) — 매대의 고민 감지가 만든 쿠폰임을 살짝 드러낸다
-  var why = { b: '고민되실 때 드리는, 지금만의 혜택이에요', v: '말씀을 듣고 준비한, 지금만의 혜택이에요' };
-  if (why[q.get('t')]) document.getElementById('why').textContent = why[q.get('t')];
+  $('why').textContent = S.why[q.get('t')] || S.sub;
 
   // 할인율 파라미터 (d=15 등, 기본 10)
   var d = parseInt(q.get('d'), 10);
@@ -114,7 +162,7 @@
   }
   document.getElementById('code').textContent = saved.code;
   document.getElementById('meta').textContent =
-    '발급 ' + new Date(saved.at).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    S.issued + ' ' + new Date(saved.at).toLocaleTimeString(S.locale, { hour: '2-digit', minute: '2-digit' });
 
   // 자정까지 카운트다운
   function tick() {
